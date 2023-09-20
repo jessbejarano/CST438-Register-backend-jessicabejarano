@@ -37,8 +37,12 @@ public class ScheduleController {
 	
 	@Autowired
 	GradebookService gradebookService;
+	
+	
 	/*
-	 * get current schedule for student.
+	 * get current schedule for student:
+	 * client makes a GET request to the "/schedule" endpoint, 
+	 * this method will be invoked
 	 */
 	@GetMapping("/schedule")
 	public ScheduleDTO[] getSchedule( @RequestParam("year") int year, @RequestParam("semester") String semester ) {
@@ -65,7 +69,7 @@ public class ScheduleController {
 		Student student = studentRepository.findByEmail(student_email);
 		Course course  = courseRepository.findById(id).orElse(null);
 		// student.status
-		// = 0  ok to register.  != 0 registration is on hold.		
+		// = 0  OK to register.  != 0 registration is on hold.		
 		if (student!= null && course!=null && student.getStatusCode()==0) {
 			// TODO check that today's date is not past add deadline for the course.
 			Enrollment enrollment = new Enrollment();
@@ -79,7 +83,7 @@ public class ScheduleController {
 			ScheduleDTO result = createSchedule(enrollment);
 			return result;
 		} else {
-			throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "Course_id invalid or student not allowed to register for the course.  "+id);
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Course_id invalid or student not allowed to register for the course.  "+id);
 		}	
 	}
 	/*
