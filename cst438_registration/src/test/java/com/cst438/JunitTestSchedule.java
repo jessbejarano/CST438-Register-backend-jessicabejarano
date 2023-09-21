@@ -51,6 +51,7 @@ public class JunitTestSchedule {
 		assertNotEquals( 0  , result.id());
 		
 		
+		
 		// do http GET for student schedule 
 		response = mvc.perform(
 				MockMvcRequestBuilders
@@ -117,6 +118,7 @@ public class JunitTestSchedule {
 		assertFalse(found);
 	}
 		
+	
 	private static String asJsonString(final Object obj) {
 		try {
 			return new ObjectMapper().writeValueAsString(obj);
