@@ -2,6 +2,7 @@ package com.cst438.controller;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional; //for Optional parameter "force"
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -18,12 +19,13 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.cst438.domain.CourseRepository;
+import com.cst438.domain.Enrollment;
 import com.cst438.domain.EnrollmentRepository;
 import com.cst438.domain.StudentDTO;
 import com.cst438.domain.Student;
 import com.cst438.domain.StudentRepository;
 import com.cst438.service.GradebookService;
-import com.google.common.base.Optional; //for Optional parameter "force"
+
 @RestController
 @CrossOrigin 
 public class StudentController {
@@ -66,19 +68,19 @@ public class StudentController {
  	}
 	
 	
-	//get student by email
-		@GetMapping("/students/search")
-		public StudentDTO getStudentByEmail(@RequestParam("email") String email) {
-		    System.out.println("/students/search called.");
+	//get student by id
+		@GetMapping("/students/{id}")
+		public StudentDTO getStudent(@PathVariable("id") int id) {
+		    System.out.println("/students/id called.");
+		    
+		    Student s = studentRepository.findById(id).orElse(null);
 
-		    if (email != null) {
-		        Student s = studentRepository.findByEmail(email);
-		        if (s != null) {
-		        	StudentDTO student = createStudent(s);
-		            return student;
-		        }
+		    if(s != null) {
+		    	StudentDTO studentDTO = createStudent(s);
+		        return studentDTO;
 		    }
-		    throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found by email: " + email);
+		    
+		    throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found by email: " + id);
 		}
 	
 	
@@ -95,7 +97,7 @@ public class StudentController {
 	
 	// method to insert each student
 	public StudentDTO createStudent(Student s) {
-		StudentDTO dto = new StudentDTO(s.getStudent_id(), s.getStatusCode(), s.getName(), s.getEmail(), s.getStatus());
+		StudentDTO dto = new StudentDTO(s.getStudent_id(), s.getName(), s.getEmail(), s.getStatusCode(), s.getStatus());
 		return dto;
 	}
 	
@@ -103,49 +105,72 @@ public class StudentController {
 	//add a new student
 	@PostMapping("/students/add")
 	@Transactional
-	public void addStudent(@RequestBody Student student) {
+	public int addStudent(@RequestBody StudentDTO student) {
 		System.out.println("/students/add called.");
+		
+		Student check = studentRepository.findByEmail(student.email());
+		if(check != null) { //student already exists
+			throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "student email already exists "+student.email());
+		}
+		
 		Student newStudent = new Student();
 	
-		 if(student != null && student.getEmail() != null && student.getName() != null && student.getStatus() != null) {
-			 System.out.println("student info");
-			 studentRepository.save(student);
-		 } else {
-			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Student e-mail, name, or status invalid");
-		}
+		newStudent.setEmail(student.email());
+		newStudent.setName(student.name());
+		newStudent.setStatusCode(student.statusCode());
+		newStudent.setStatus(student.status());
+		studentRepository.save(newStudent);
+		
+		// return the database generated student_id 
+		return newStudent.getStudent_id();
 	}
 	
 	
 	//update the student status
-	@PutMapping("/students/update")
-	@Transactional //?
-	public void updateStatus(@RequestParam("email") String email, @RequestParam("statusCode") int statusCode, @RequestParam("statusMsg") String statusMsg) {
+	@PutMapping("/students/update/{id}")
+	public void updateStudent(@PathVariable("id") int id, @RequestBody StudentDTO sdto) {
 		System.out.println("/students/update called.");
-		Student foundStudent = studentRepository.findByEmail(email);
 		
-		if(foundStudent != null) {
-			foundStudent.setStatusCode(statusCode);
-			foundStudent.setStatus(statusMsg);
-			studentRepository.save(foundStudent);
-		} else {
-			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Student e-mail / status message invalid"+email);
+		Student foundStudent = studentRepository.findById(id).orElse(null);
+		
+		if(foundStudent == null) {
+			throw  new ResponseStatusException( HttpStatus.NOT_FOUND, "student not found "+id);
 		}
+		
+		if(!foundStudent.getEmail().equals(sdto.email())) {
+			// update name, email.  new email must not exist in database
+			Student check = studentRepository.findByEmail(sdto.email());
+			if(check != null) { // error.  email exists.
+				throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "student email already exists "+sdto.email());
+			}
+		}
+		foundStudent.setEmail(sdto.email());
+		foundStudent.setName(sdto.name());
+		foundStudent.setStatusCode(sdto.statusCode());
+		foundStudent.setStatus(sdto.status());
+		studentRepository.save(foundStudent);
 	}
 	
 	
 	//delete a student
 	//delete /course/12389?force=yes
-	@DeleteMapping("/students/delete/{email}")
-	@Transactional
-	public void deleteStudent(@PathVariable String email, @RequestParam(required = false, name = "force") Optional<String> force) {
+	@DeleteMapping("/students/delete/{id}")
+	public void deleteStudent(@PathVariable("id") int id, @RequestParam("force") Optional<String> force) {
 		System.out.println("/students/delete called.");
-		Student foundStudent = studentRepository.findByEmail(email);
+		
+		Student foundStudent = studentRepository.findById(id).orElse(null);
 		
 		if (foundStudent != null) {
-			studentRepository.delete(foundStudent);
-		} else {
-		    throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Student e-mail invalid"+email);
+			// are there enrollments?
+			List<Enrollment> list = enrollmentRepository.findByStudentId(id);
+			if (list.size()>0 && force.isEmpty()) {
+				throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "student has enrollments");
+			} else {
+				studentRepository.delete(foundStudent);
+			} 
+		} else { //student DNE
+		    return;
 		}
-	}
 	
+	}
 }
