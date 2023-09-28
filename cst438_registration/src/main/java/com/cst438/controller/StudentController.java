@@ -144,10 +144,20 @@ public class StudentController {
 				throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "student email already exists "+sdto.email());
 			}
 		}
-		foundStudent.setEmail(sdto.email());
-		foundStudent.setName(sdto.name());
-		foundStudent.setStatusCode(sdto.statusCode());
-		foundStudent.setStatus(sdto.status());
+		
+		if(sdto.email() != null) {
+			foundStudent.setEmail(sdto.email());
+		}
+		if(sdto.name() != null) {
+			foundStudent.setName(sdto.name());
+		}
+		if (sdto.statusCode() >= 0) {
+		    foundStudent.setStatusCode(sdto.statusCode());
+		}
+
+		if(sdto.status() != null) {
+			foundStudent.setStatus(sdto.status());
+		}
 		studentRepository.save(foundStudent);
 	}
 	
