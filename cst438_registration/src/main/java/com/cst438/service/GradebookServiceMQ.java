@@ -4,6 +4,7 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,12 @@ public class GradebookServiceMQ implements GradebookService {
 	EnrollmentRepository enrollmentRepository;
 	
 	Queue gradebookQueue = new Queue("gradebook-queue", true);
+	
+	 @Bean
+	 Queue createQueue() {
+	 return new Queue("registration-queue");
+	 }
+	 
 
 	// send message to grade book service about new student enrollment in course
 	@Override
