@@ -154,7 +154,6 @@ public class StudentController {
 		if (sdto.statusCode() >= 0) {
 		    foundStudent.setStatusCode(sdto.statusCode());
 		}
-
 		if(sdto.status() != null) {
 			foundStudent.setStatus(sdto.status());
 		}
