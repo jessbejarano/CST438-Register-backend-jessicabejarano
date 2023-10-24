@@ -6,6 +6,8 @@ import java.util.Optional; //for Optional parameter "force"
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -68,7 +70,7 @@ public class StudentController {
  	}
 	
 	
-	//get student by id
+		//get student by id
 		@GetMapping("/students/{id}")
 		public StudentDTO getStudent(@PathVariable("id") int id) {
 		    System.out.println("/students/id called.");
@@ -108,21 +110,31 @@ public class StudentController {
 	public int addStudent(@RequestBody StudentDTO student) {
 		System.out.println("/students/add called.");
 		
-		Student check = studentRepository.findByEmail(student.email());
-		if(check != null) { //student already exists
-			throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "student email already exists "+student.email());
+		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+		String user_email = (String) auth.getPrincipal();
+		
+		//Check if user_email is an ADMIN:
+	    Student adminUser = studentRepository.findByEmailAndRole(user_email, "ADMIN");
+		
+		if(adminUser != null) {
+			Student check = studentRepository.findByEmail(student.email());
+			if(check != null) { //student already exists
+				throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "student email already exists "+student.email());
+			}
+			
+			Student newStudent = new Student();
+		
+			newStudent.setEmail(student.email());
+			newStudent.setName(student.name());
+			newStudent.setStatusCode(student.statusCode());
+			newStudent.setStatus(student.status());
+			studentRepository.save(newStudent);
+			
+			// return the database generated student_id 
+			return newStudent.getStudent_id();
 		}
-		
-		Student newStudent = new Student();
-	
-		newStudent.setEmail(student.email());
-		newStudent.setName(student.name());
-		newStudent.setStatusCode(student.statusCode());
-		newStudent.setStatus(student.status());
-		studentRepository.save(newStudent);
-		
-		// return the database generated student_id 
-		return newStudent.getStudent_id();
+		//ERROR:
+		throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You must be an ADMIN to add students.");
 	}
 	
 	
@@ -131,34 +143,44 @@ public class StudentController {
 	public void updateStudent(@PathVariable("id") int id, @RequestBody StudentDTO sdto) {
 		System.out.println("/students/update called.");
 		
-		Student foundStudent = studentRepository.findById(id).orElse(null);
+		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+		String user_email = (String) auth.getPrincipal();
 		
-		if(foundStudent == null) {
-			throw  new ResponseStatusException( HttpStatus.NOT_FOUND, "student not found "+id);
-		}
-		
-		if(!foundStudent.getEmail().equals(sdto.email())) {
-			// update name, email.  new email must not exist in database
-			Student check = studentRepository.findByEmail(sdto.email());
-			if(check != null) { // error.  email exists.
-				throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "student email already exists "+sdto.email());
+		//Check if user_email is an ADMIN:
+	    Student adminUser = studentRepository.findByEmailAndRole(user_email, "ADMIN");
+	    
+	    if(adminUser != null) {
+	    	Student foundStudent = studentRepository.findById(id).orElse(null);
+			
+			if(foundStudent == null) {
+				throw  new ResponseStatusException( HttpStatus.NOT_FOUND, "student not found "+id);
 			}
-		}
-		
-		if(sdto.email() != null) {
-			foundStudent.setEmail(sdto.email());
-		}
-		if(sdto.name() != null) {
-			foundStudent.setName(sdto.name());
-		}
-		if (sdto.statusCode() >= 0) {
-		    foundStudent.setStatusCode(sdto.statusCode());
-		}
-		if(sdto.status() != null) {
-			foundStudent.setStatus(sdto.status());
-		}
-		studentRepository.save(foundStudent);
-	}
+			
+			if(!foundStudent.getEmail().equals(sdto.email())) {
+				// update name, email.  new email must not exist in database
+				Student check = studentRepository.findByEmail(sdto.email());
+				if(check != null) { // error.  email exists.
+					throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "student email already exists "+sdto.email());
+				}
+			}
+			
+			if(sdto.email() != null) {
+				foundStudent.setEmail(sdto.email());
+			}
+			if(sdto.name() != null) {
+				foundStudent.setName(sdto.name());
+			}
+			if (sdto.statusCode() >= 0) {
+			    foundStudent.setStatusCode(sdto.statusCode());
+			}
+			if(sdto.status() != null) {
+				foundStudent.setStatus(sdto.status());
+			}
+			studentRepository.save(foundStudent);
+	    }
+	    //ERROR:
+	  	throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You must be an ADMIN to add students.");
+	 }
 	
 	
 	//delete a student
@@ -167,19 +189,28 @@ public class StudentController {
 	public void deleteStudent(@PathVariable("id") int id, @RequestParam("force") Optional<String> force) {
 		System.out.println("/students/delete called.");
 		
-		Student foundStudent = studentRepository.findById(id).orElse(null);
+		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+		String user_email = (String) auth.getPrincipal();
 		
-		if (foundStudent != null) {
-			// are there enrollments?
-			List<Enrollment> list = enrollmentRepository.findByStudentId(id);
-			if (list.size()>0 && force.isEmpty()) {
-				throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "student has enrollments");
-			} else {
-				studentRepository.delete(foundStudent);
-			} 
-		} else { //student DNE
-		    return;
-		}
-	
+		//Check if user_email is an ADMIN:
+	    Student adminUser = studentRepository.findByEmailAndRole(user_email, "ADMIN");
+	    
+	    if(adminUser != null) {
+	    	Student foundStudent = studentRepository.findById(id).orElse(null);
+			
+			if (foundStudent != null) {
+				// are there enrollments?
+				List<Enrollment> list = enrollmentRepository.findByStudentId(id);
+				if (list.size()>0 && force.isEmpty()) {
+					throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "student has enrollments");
+				} else {
+					studentRepository.delete(foundStudent);
+				} 
+			} else { //student DNE
+			    return;
+			}
+	    }
+	    //ERROR:
+	  	throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You must be an ADMIN to add students.");
 	}
 }
