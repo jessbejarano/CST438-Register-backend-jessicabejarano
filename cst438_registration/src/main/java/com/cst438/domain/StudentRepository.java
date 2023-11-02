@@ -8,4 +8,6 @@ public interface StudentRepository extends CrudRepository <Student, Integer> {
 	
 	 Student[] findByNameStartsWith(String name);
 
+	Student findByEmailAndRole(String user_email, String string);
+
 }
